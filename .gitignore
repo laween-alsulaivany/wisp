@@ -1,0 +1,6 @@
+/Private
+
+**/bin/
+**/obj/
+.vs/
+*.user
