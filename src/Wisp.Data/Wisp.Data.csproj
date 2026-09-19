@@ -15,4 +15,9 @@
     <ProjectReference Include="..\Wisp.Core\Wisp.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations\**\*.sql" />
+    <InternalsVisibleTo Include="Wisp.Data.Tests" />
+  </ItemGroup>
+
 </Project>
