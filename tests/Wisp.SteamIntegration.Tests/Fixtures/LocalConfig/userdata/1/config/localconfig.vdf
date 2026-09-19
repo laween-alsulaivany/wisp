@@ -1,0 +1,32 @@
+"uSeRlOcAlCoNfIgStOrE"
+{
+    "sOfTwArE"
+    {
+        "vAlVe"
+        {
+            "sTeAm"
+            {
+                "aPpS"
+                {
+                    // Missing playtime and last-played keys.
+                    "10" { "UnrelatedSetting" "1" }
+                    "20" { "pLaYtImE" "125" "lAsTpLaYeD" "1700000000" }
+                    "30" { "Playtime" "invalid" "LastPlayed" "invalid" }
+                    "40" { "Playtime" "-1" "LastPlayed" "-1" }
+                    "50" { "Playtime" "99999999999999999999999" "LastPlayed" "9223372036854775807" }
+                    "60" { "Playtime" { "wrong" "shape" } "LastPlayed" { "wrong" "shape" } }
+                    "70" "not-an-app-object"
+                    "80" { "RenamedPlaytime" "999" "RenamedLastPlayed" "1700000000" }
+                    "90" { "Playtime" "45" "LastPlayed" "0" }
+                    "100" { "Playtime" "0" "LastPlayed" "253402300799" }
+                    "110" { "Playtime" "60" "LastPlayed" "253402300800" }
+                    "120" { "Playtime" "75" "LastPlayed" "1700000100" }
+                    "invalid" { "Playtime" "5" }
+                    "0" { "Playtime" "5" }
+                    "-1" { "Playtime" "5" }
+                    "99999999999999999999999" { "Playtime" "5" }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,20 @@
+"libraryfolders"
+{
+    "0"
+    {
+        "path" "C:\\Fixture Steam"
+        "apps" { "10" "1234" }
+    }
+    "1"
+    {
+        "path" "D:\\Fixture Library"
+        "apps" { "20" "5678" }
+    }
+    "4"
+    {
+        "PATH" "E:\\Empty Fixture Library"
+        "apps" { }
+    }
+    "TimeNextStatsReport" "12345"
+    "5" { "label" "missing path" }
+}
