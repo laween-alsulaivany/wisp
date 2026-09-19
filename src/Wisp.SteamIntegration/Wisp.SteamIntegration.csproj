@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Wisp.Core\Wisp.Core.csproj" />
     <InternalsVisibleTo Include="Wisp.SteamIntegration.Tests" />
+    <EmbeddedResource Include="AppInfo\Tags.json" />
   </ItemGroup>
 
 </Project>
