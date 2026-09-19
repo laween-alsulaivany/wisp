@@ -1,0 +1,17 @@
+"users"
+{
+    "76561197960265729"
+    {
+        "AccountName" "fixture_recent"
+        "PersonaName" "Fixture Recent"
+        "MostRecent" "1"
+        "Timestamp" "100"
+    }
+    "76561197960265730"
+    {
+        "AccountName" "fixture_newer"
+        "PersonaName" "Fixture Newer"
+        "MostRecent" "0"
+        "Timestamp" "300"
+    }
+}
