@@ -29,6 +29,7 @@ public sealed class ContainerValidationTests
             workers.Should().HaveCount(5);
             workers.OfType<SessionTrackingService>().Single().Should()
                 .BeSameAs(host.Services.GetRequiredService<ISessionTracker>());
+            host.Services.GetRequiredService<Wisp.App.ViewModels.RecommendationViewModel>().Should().NotBeNull();
             host.Services.GetRequiredService<IForegroundWindowMonitor>().Should()
                 .BeSameAs(host.Services.GetRequiredService<Wisp.SteamIntegration.Win32.ForegroundWindowMonitor>());
         }

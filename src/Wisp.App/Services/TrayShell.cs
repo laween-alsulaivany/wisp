@@ -22,13 +22,17 @@ public sealed class TrayShell : IDisposable
     private readonly MenuFlyout menu = new();
     private readonly MenuFlyoutItem updateItem;
     private bool disposed;
+    private readonly Action openRecommendation;
 
-    public TrayShell(UpdateStatus updates, IHotkeyManager hotkey, ILogger<TrayShell> logger, Func<Task> exit)
+    public TrayShell(UpdateStatus updates, IHotkeyManager hotkey, ILogger<TrayShell> logger,
+        Action openRecommendation, Func<Task> exit)
     {
         this.updates = updates;
         this.hotkey = hotkey;
         this.logger = logger;
-        foreach (var title in new[] { "Pick for me", "Library", "History", "Settings" })
+        this.openRecommendation = openRecommendation;
+        menu.Items.Add(new MenuFlyoutItem { Text = "Pick for me", Command = new RelayCommand(openRecommendation) });
+        foreach (var title in new[] { "Library", "History", "Settings" })
             menu.Items.Add(new MenuFlyoutItem { Text = title, Command = new RelayCommand(() => OpenPlaceholder(title)) });
         menu.Items.Add(new MenuFlyoutItem { Text = "Exit", Command = new AsyncRelayCommand(exit) });
         updateItem = new MenuFlyoutItem
@@ -52,7 +56,7 @@ public sealed class TrayShell : IDisposable
     }
 
     private void OnPickHotkey(object? sender, EventArgs args) =>
-        dispatcher.TryEnqueue(() => OpenPlaceholder("Pick for me"));
+        dispatcher.TryEnqueue(() => { if (!disposed) openRecommendation(); });
 
     private void OpenPlaceholder(string title)
     {

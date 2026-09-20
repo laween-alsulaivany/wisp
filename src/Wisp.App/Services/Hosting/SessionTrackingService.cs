@@ -18,6 +18,10 @@ public sealed class SessionTrackingService(
     private readonly object gate = new();
     private SessionTracker? tracker;
     private bool enabled = true;
+    private int? activeProfileId;
+
+    public int? ActiveProfileId { get { lock (gate) return activeProfileId; } }
+    public event EventHandler? ActiveProfileChanged;
 
     public event EventHandler<SessionStartedEventArgs>? SessionStarted;
     public event EventHandler<SessionEndedEventArgs>? SessionEnded;
@@ -65,8 +69,10 @@ public sealed class SessionTrackingService(
                             tracker = new SessionTracker(profileId, games, sessions, foreground, clock);
                             tracker.SessionStarted += ForwardStarted;
                             tracker.SessionEnded += ForwardEnded;
+                            activeProfileId = profileId;
                             if (enabled) tracker.Start();
                         }
+                        ActiveProfileChanged?.Invoke(this, EventArgs.Empty);
                         logger.LogInformation("Session tracker started for active local profile");
                     }
                     currentSteamId = steamId;
@@ -82,8 +88,9 @@ public sealed class SessionTrackingService(
     private void ReleaseTracker()
     {
         SessionTracker? previous;
-        lock (gate) { previous = tracker; tracker = null; }
+        lock (gate) { previous = tracker; tracker = null; activeProfileId = null; }
         if (previous is null) return;
+        ActiveProfileChanged?.Invoke(this, EventArgs.Empty);
         previous.Dispose();
         previous.SessionStarted -= ForwardStarted;
         previous.SessionEnded -= ForwardEnded;
