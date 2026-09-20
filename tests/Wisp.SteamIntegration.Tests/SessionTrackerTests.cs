@@ -443,6 +443,12 @@ public sealed class SessionTrackerTests
             return Task.CompletedTask;
         }
 
+        public Task<Session?> GetByIdAsync(int sessionId, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(Rows.GetValueOrDefault(sessionId));
+        }
+
         public Task<PlaytimeDistribution> GetActivePlaytimeDistributionAsync(int profileId, long? appId, CancellationToken ct) =>
             throw new NotSupportedException();
     }

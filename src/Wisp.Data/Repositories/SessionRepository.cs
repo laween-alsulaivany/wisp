@@ -40,6 +40,13 @@ public sealed class SessionRepository(WispDatabase database) : ISessionRepositor
         return 0;
     }, ct);
 
+    public async Task<Session?> GetByIdAsync(int sessionId, CancellationToken ct)
+    {
+        await using var connection = await database.OpenReadAsync(ct);
+        return await connection.QuerySingleOrDefaultAsync<Session>(WispDatabase.Command(
+            "SELECT * FROM Sessions WHERE SessionId = @SessionId;", new { SessionId = sessionId }, ct));
+    }
+
     public async Task<PlaytimeDistribution> GetActivePlaytimeDistributionAsync(int profileId, long? appId,
         CancellationToken ct)
     {
