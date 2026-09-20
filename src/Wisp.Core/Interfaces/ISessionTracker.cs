@@ -8,4 +8,5 @@ public interface ISessionTracker
     event EventHandler<SessionEndedEventArgs> SessionEnded;
     void Start();
     void Stop();
+    void NotifyRecommendationLaunch(long appId);
 }
