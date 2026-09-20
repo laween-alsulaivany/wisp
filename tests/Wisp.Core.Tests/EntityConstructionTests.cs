@@ -48,11 +48,19 @@ public sealed class EntityConstructionTests
         Assert.Equal(string.Empty, game.Name);
         Assert.Empty(game.Tags);
         Assert.False(game.Installed);
+        Assert.Null(game.InstallDir);
         Assert.False(game.IsFreeToPlay);
         Assert.False(game.IsToolOrUtility);
         Assert.False(game.IsDemo);
         Assert.False(game.IsVrOnly);
         Assert.False(game.SupportsController);
+        Assert.False(game.IsSinglePlayer);
+        Assert.False(game.IsMultiplayer);
+        Assert.False(game.IsStoryFocused);
+        Assert.Null(game.HeaderImagePath);
+        Assert.Null(game.HeaderImageFetchedUtc);
+        Assert.Null(game.MetadataFetchedUtc);
+        Assert.True(game.MetadataStale);
         Assert.Equal(0, game.SteamCumulativePlaytimeMinutes);
         Assert.Null(game.SteamLastPlayedUtc);
     }

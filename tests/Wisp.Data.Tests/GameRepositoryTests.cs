@@ -15,6 +15,11 @@ public sealed class GameRepositoryTests
         {
             AppId = 4_000_000_000, Name = "Game's name", Installed = true, IsFreeToPlay = true,
             IsToolOrUtility = true, IsDemo = true, IsVrOnly = true, SupportsController = true,
+            InstallDir = @"D:\SteamLibrary\steamapps\common\Game's name",
+            IsSinglePlayer = true, IsMultiplayer = true, IsStoryFocused = true,
+            HeaderImagePath = @"C:\Users\Player\AppData\Local\Wisp\artwork\4000000000.jpg",
+            HeaderImageFetchedUtc = TestDatabase.Now.ToOffset(TimeSpan.FromHours(-6)),
+            MetadataFetchedUtc = TestDatabase.Now.ToOffset(TimeSpan.FromHours(5.5)), MetadataStale = false,
             SteamCumulativePlaytimeMinutes = 5_000_000_000,
             SteamLastPlayedUtc = TestDatabase.Now.ToOffset(TimeSpan.FromHours(5.5)), Tags = ["Story", "Action"]
         };
@@ -25,6 +30,15 @@ public sealed class GameRepositoryTests
         Assert.Equal(new[] { "Action", "Story" }, first.Tags);
         Assert.Equal(TimeSpan.Zero, first.SteamLastPlayedUtc!.Value.Offset);
         Assert.Equal("2026-09-19T12:30:15.123Z", await db.ScalarAsync<string>("SELECT SteamLastPlayedUtc FROM Games;"));
+        Assert.Equal(TimeSpan.Zero, first.HeaderImageFetchedUtc!.Value.Offset);
+        Assert.Equal(TimeSpan.Zero, first.MetadataFetchedUtc!.Value.Offset);
+        Assert.Equal("2026-09-19T12:30:15.123Z", await db.ScalarAsync<string>("SELECT HeaderImageFetchedUtc FROM Games;"));
+        Assert.Equal("2026-09-19T12:30:15.123Z", await db.ScalarAsync<string>("SELECT MetadataFetchedUtc FROM Games;"));
+        foreach (var column in new[] { "IsSinglePlayer", "IsMultiplayer", "IsStoryFocused", "MetadataStale" })
+        {
+            Assert.Equal("integer", await db.ScalarAsync<string>($"SELECT typeof({column}) FROM Games;"));
+            Assert.Equal(column == "MetadataStale" ? 0 : 1, await db.ScalarAsync<int>($"SELECT {column} FROM Games;"));
+        }
         Assert.Equal("integer", await db.ScalarAsync<string>("SELECT typeof(Installed) FROM Games;"));
         Assert.Equal(1, await db.ScalarAsync<int>("SELECT Installed FROM Games;"));
         var createdUtc = await db.ScalarAsync<string>("SELECT CreatedUtc FROM Games;");
@@ -35,6 +49,8 @@ public sealed class GameRepositoryTests
         {
             Name = "Renamed", Installed = false, IsFreeToPlay = false, IsToolOrUtility = false,
             IsDemo = false, IsVrOnly = false, SupportsController = false,
+            InstallDir = null, IsSinglePlayer = false, IsMultiplayer = false, IsStoryFocused = false,
+            HeaderImagePath = null, HeaderImageFetchedUtc = null, MetadataFetchedUtc = null, MetadataStale = true,
             SteamCumulativePlaytimeMinutes = 0, SteamLastPlayedUtc = null, Tags = ["Puzzle"]
         };
         await db.Games.UpsertAsync(updated, default);
@@ -46,6 +62,53 @@ public sealed class GameRepositoryTests
         Assert.Equal(0, await db.ScalarAsync<int>("SELECT Installed FROM Games;"));
         Assert.Equal(createdUtc, await db.ScalarAsync<string>("SELECT CreatedUtc FROM Games;"));
         Assert.Null(await db.Games.GetByAppIdAsync(999, default));
+    }
+
+    [Fact]
+    public async Task NewGamePersistsStaleMetadataAndNullCacheFields()
+    {
+        await using var db = await TestDatabase.CreateAsync();
+        var game = await db.AddGameAsync();
+
+        Assert.True(game.MetadataStale);
+        Assert.Equal(1, await db.ScalarAsync<int>("SELECT MetadataStale FROM Games;"));
+        Assert.Null(game.InstallDir);
+        Assert.Null(game.HeaderImagePath);
+        Assert.Null(game.HeaderImageFetchedUtc);
+        Assert.Null(game.MetadataFetchedUtc);
+    }
+
+    [Fact]
+    public async Task GetAllReturnsEmptyForAnEmptyLibrary()
+    {
+        await using var db = await TestDatabase.CreateAsync();
+
+        Assert.Empty(await db.Games.GetAllAsync(default));
+    }
+
+    [Fact]
+    public async Task GetAllReturnsEachGamesFieldsAndTagsWithoutRequiringAProfile()
+    {
+        await using var db = await TestDatabase.CreateAsync();
+        var first = new Game
+        {
+            AppId = 420, Name = "First", Installed = true, InstallDir = @"D:\Steam\steamapps\common\First",
+            IsSinglePlayer = true, IsMultiplayer = true, IsStoryFocused = true,
+            MetadataStale = false, MetadataFetchedUtc = TestDatabase.Now,
+            HeaderImagePath = @"C:\artwork\420.jpg", HeaderImageFetchedUtc = TestDatabase.Now,
+            Tags = ["Story", "Action"]
+        };
+        var second = new Game { AppId = 10, Name = "Second", Tags = ["Puzzle"] };
+        await db.Games.UpsertAsync(first, default);
+        await db.Games.UpsertAsync(second, default);
+
+        var games = await db.Games.GetAllAsync(default);
+
+        Assert.Equal(new long[] { 420, 10 }, games.Select(game => game.AppId));
+        Assert.Equal(first with { GameId = games[0].GameId, Tags = games[0].Tags }, games[0]);
+        Assert.Equal(second with { GameId = games[1].GameId, Tags = games[1].Tags }, games[1]);
+        Assert.Equal(new[] { "Action", "Story" }, games[0].Tags);
+        Assert.Equal(new[] { "Puzzle" }, games[1].Tags);
     }
 
     [Fact]
@@ -96,6 +159,8 @@ public sealed class GameRepositoryTests
 
         var pool = await db.Games.GetEligiblePoolAsync(profile, new EligibilityFilter { UtcNow = TestDatabase.Now }, default);
         Assert.Equal(included.AppId, Assert.Single(pool).AppId);
+        Assert.Equal(new[] { included.AppId, excluded.AppId },
+            (await db.Games.GetAllAsync(default)).Select(game => game.AppId));
     }
 
     [Theory]
