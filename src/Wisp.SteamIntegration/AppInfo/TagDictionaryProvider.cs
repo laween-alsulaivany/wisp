@@ -14,9 +14,7 @@ public sealed class TagDictionaryProvider : ITagDictionaryProvider
     {
         // Per the PRD, refresh this starter set by hand in future app releases;
         // never fetch tag names during metadata sync.
-        using var stream = typeof(TagDictionaryProvider).Assembly
-            .GetManifestResourceStream("Wisp.SteamIntegration.AppInfo.Tags.json")
-            ?? throw new InvalidOperationException("Bundled tag dictionary is missing.");
+        using var stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "assets", "tags.json"));
         return (JsonSerializer.Deserialize<Dictionary<int, string>>(stream)
             ?? throw new InvalidDataException("Bundled tag dictionary is empty.")).ToFrozenDictionary();
     }

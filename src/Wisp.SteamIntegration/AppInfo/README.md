@@ -21,9 +21,11 @@ one million table keys, 16 KiB per table key, and 64 nested KV objects. The iter
 prevents the installed recursive ValveKeyValue reader from overflowing its stack;
 metadata extraction still uses ValveKeyValue's binary deserializer.
 
-`Tags.json` contains 76 English starter mappings covering genres, moods, themes,
+The repository's `assets/tags.json` contains 76 English starter mappings covering genres, moods, themes,
 and play styles, verified against [Steam's public tag list](https://store.steampowered.com/tagdata/populartags/english)
-on 2026-09-19. It is embedded in the assembly and loaded once. Maintain this file
+on 2026-09-19. Both Data and SteamIntegration link this single physical file into
+their build and publish output. The provider reads that linked file once, while
+Data upserts it into the database on every startup. Maintain this file
 by hand for future app releases; unknown IDs resolve to null. There is no runtime
 download or database dependency.
 
