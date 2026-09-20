@@ -8,6 +8,7 @@ public sealed record GameState
     public int ProfileId { get; init; }
     public GameStateKind State { get; init; }
     public double ActiveRankScore { get; init; }
+    public int ConsecutiveKeepGoingCount { get; init; }
     public DateTimeOffset? MaybeLaterUntilUtc { get; init; }
     public DateTimeOffset StateChangedUtc { get; init; }
 }

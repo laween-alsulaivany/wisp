@@ -16,9 +16,12 @@ public sealed class GameStateRepository(WispDatabase database) : IGameStateRepos
 
     public Task UpsertAsync(GameState state, CancellationToken ct) => database.WriteAsync(connection =>
         connection.ExecuteAsync(WispDatabase.Command("""
-            INSERT INTO GameStates (GameId, ProfileId, State, ActiveRankScore, MaybeLaterUntilUtc, StateChangedUtc)
-            VALUES (@GameId, @ProfileId, @State, @ActiveRankScore, @MaybeLaterUntilUtc, @StateChangedUtc)
+            INSERT INTO GameStates (GameId, ProfileId, State, ActiveRankScore, ConsecutiveKeepGoingCount,
+                MaybeLaterUntilUtc, StateChangedUtc)
+            VALUES (@GameId, @ProfileId, @State, @ActiveRankScore, @ConsecutiveKeepGoingCount,
+                @MaybeLaterUntilUtc, @StateChangedUtc)
             ON CONFLICT(GameId, ProfileId) DO UPDATE SET State = excluded.State,
+                ConsecutiveKeepGoingCount = excluded.ConsecutiveKeepGoingCount,
                 ActiveRankScore = excluded.ActiveRankScore, MaybeLaterUntilUtc = excluded.MaybeLaterUntilUtc,
                 StateChangedUtc = excluded.StateChangedUtc;
             """, state, ct)), ct);

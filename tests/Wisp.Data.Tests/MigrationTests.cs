@@ -22,8 +22,8 @@ public sealed class MigrationTests
 
         await runner.ApplyAsync(default);
 
-        Assert.Equal(1, await db.ScalarAsync<int>("PRAGMA user_version;"));
-        Assert.Equal(1, await db.ScalarAsync<int>("SELECT COUNT(*) FROM SchemaMigrations;"));
+        Assert.Equal(2, await db.ScalarAsync<int>("PRAGMA user_version;"));
+        Assert.Equal(2, await db.ScalarAsync<int>("SELECT COUNT(*) FROM SchemaMigrations;"));
         Assert.Equal(applied, await db.ScalarAsync<string>("SELECT AppliedUtc FROM SchemaMigrations WHERE Version = 1;"));
         Assert.Matches(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$", applied);
         Assert.Equal(schema, await db.ScalarAsync<string>("SELECT group_concat(sql, '|') FROM sqlite_master ORDER BY name;"));
@@ -33,6 +33,46 @@ public sealed class MigrationTests
         Assert.Equal(0, await db.ScalarAsync<int>(
             "SELECT COUNT(*) FROM main.sqlite_master WHERE name = 'CompletionEstimates';"));
         Assert.Equal(bundledHash, SHA256.HashData(await File.ReadAllBytesAsync(db.EstimatesPath)));
+    }
+
+    [Fact]
+    public async Task VersionOneUpgradePreservesStateAndHistoryAndDefaultsStreakToZero()
+    {
+        await using var db = await TestDatabase.CreateAsync(false);
+        await using var stream = typeof(MigrationRunner).Assembly.GetManifestResourceStream(
+            "Wisp.Data.Migrations.0001_initial_schema.sql")!;
+        using var reader = new StreamReader(stream);
+        await db.ExecuteAsync(await reader.ReadToEndAsync());
+        await db.ExecuteAsync("""
+            INSERT INTO SchemaMigrations VALUES (1, '2026-09-19T12:30:15.123Z');
+            PRAGMA user_version = 1;
+            """);
+        var profile = await db.AddProfileAsync();
+        var game = await db.AddGameAsync();
+        var session = await db.AddSessionAsync(game.GameId, profile);
+        await db.ExecuteAsync($"""
+            INSERT INTO GameStates (GameId, ProfileId, State, ActiveRankScore, StateChangedUtc)
+            VALUES ({game.GameId}, {profile}, 'Active', 42.5, '2026-09-19T12:30:15.123Z');
+            """);
+
+        await new MigrationRunner(db.Database).ApplyAsync(default);
+        await new MigrationRunner(db.Database).ApplyAsync(default);
+
+        var state = await db.States.GetAsync(game.GameId, profile, default);
+        Assert.NotNull(state);
+        Assert.Equal(Wisp.Core.Enums.GameStateKind.Active, state.State);
+        Assert.Equal(42.5, state.ActiveRankScore);
+        Assert.Equal(TestDatabase.Now, state.StateChangedUtc);
+        Assert.Equal(0, state.ConsecutiveKeepGoingCount);
+        Assert.Equal(session, await db.ScalarAsync<int>("SELECT SessionId FROM Sessions;"));
+        Assert.Equal(2, await db.ScalarAsync<int>("PRAGMA user_version;"));
+        Assert.Equal(2, await db.ScalarAsync<int>("SELECT COUNT(*) FROM SchemaMigrations;"));
+        Assert.Equal("2026-09-19T12:30:15.123Z",
+            await db.ScalarAsync<string>("SELECT AppliedUtc FROM SchemaMigrations WHERE Version = 1;"));
+        Assert.Equal("1:0", await db.ScalarAsync<string>("""
+            SELECT "notnull" || ':' || dflt_value FROM pragma_table_info('GameStates')
+            WHERE name = 'ConsecutiveKeepGoingCount';
+            """));
     }
 
     [Fact]

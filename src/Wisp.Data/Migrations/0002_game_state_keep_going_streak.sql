@@ -1,0 +1,1 @@
+ALTER TABLE GameStates ADD COLUMN ConsecutiveKeepGoingCount INTEGER NOT NULL DEFAULT 0;

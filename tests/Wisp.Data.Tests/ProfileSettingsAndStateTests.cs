@@ -86,15 +86,22 @@ public sealed class ProfileSettingsAndStateTests
         var state = new GameState
         {
             GameId = game.GameId, ProfileId = id, State = GameStateKind.MaybeLater, ActiveRankScore = 42.5,
+            ConsecutiveKeepGoingCount = 3,
             MaybeLaterUntilUtc = TestDatabase.Now.AddDays(7).ToOffset(TimeSpan.FromHours(5)), StateChangedUtc = TestDatabase.Now
         };
         await db.States.UpsertAsync(state, default);
         Assert.Equal(state, await db.States.GetAsync(game.GameId, id, default));
         await db.States.UpsertAsync(state with { ProfileId = other }, default);
-        var updated = state with { State = GameStateKind.Active, ActiveRankScore = 56.25, MaybeLaterUntilUtc = null };
+        var updated = state with
+        {
+            State = GameStateKind.Active, ActiveRankScore = 56.25, MaybeLaterUntilUtc = null,
+            ConsecutiveKeepGoingCount = 4
+        };
         await db.States.UpsertAsync(updated, default);
         Assert.Equal(updated, await db.States.GetAsync(game.GameId, id, default));
         Assert.Equal(state with { ProfileId = other }, await db.States.GetAsync(game.GameId, other, default));
         Assert.Equal(2, await db.ScalarAsync<int>("SELECT COUNT(*) FROM GameStates;"));
+        await db.States.UpsertAsync(updated with { ConsecutiveKeepGoingCount = 0 }, default);
+        Assert.Equal(0, (await db.States.GetAsync(game.GameId, id, default))!.ConsecutiveKeepGoingCount);
     }
 }

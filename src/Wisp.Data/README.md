@@ -48,7 +48,24 @@ no profile and applies no recommendation filters.
 
 Session completion persists the caller-supplied runtime and foreground seconds.
 Only completed sessions contribute raw samples to `PlaytimeDistribution`.
-Median calculation and recommendation logic remain outside this project.
+`RecommendationSnapshotProvider` computes personal medians once there are at
+least three completed sessions and a profile median across all completed sessions,
+including games outside the eligible pool. Both use active foreground seconds
+converted to minutes, with no rounding. The engine owns scoring and filtering.
+
+Construct the snapshot provider with the database, `IGameRepository`,
+`ISettingsRepository`, and `IClock`. It captures time once, obtains the base eligible
+pool using the profile's inclusion settings (defaults when no settings row exists),
+then reads session history, states, and bundled estimates in one read transaction.
+The pool/settings calls precede that transaction; this is not an atomic snapshot
+across concurrent library or settings updates. Returned records are detached from
+subsequent database changes. `LastSessionUtc` is the latest completed session's
+start time; Steam bootstrap playtime affects `NeverPlayed` without creating local
+session history. Missing states and estimates remain default/null values.
+
+Migration 2 adds `GameStates.ConsecutiveKeepGoingCount`, defaulting existing rows
+to zero. Game-state upserts round-trip this value. Updating it from feedback is
+the Phase 9 service's responsibility.
 
 Run the phase gate from the repository root:
 
