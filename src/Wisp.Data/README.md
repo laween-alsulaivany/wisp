@@ -1,13 +1,14 @@
 # Wisp.Data
 
 Create a `WispDatabase` with the writable user database path and the existing,
-bundled `completion-estimates.db` path. The user database's parent directory must
+bundled `assets/completion-estimates.db` path. The user database's parent directory must
 already exist. Await `IMigrationRunner.ApplyAsync` before using repositories:
 
 ```csharp
 var database = new WispDatabase(userDatabasePath, completionEstimatesPath);
 IMigrationRunner migrations = new MigrationRunner(database);
 await migrations.ApplyAsync(cancellationToken);
+await new TagDictionarySeeder(database).SeedAsync(cancellationToken);
 IGameRepository games = new GameRepository(database);
 ```
 
@@ -27,8 +28,10 @@ runner validates both version records and commits DDL, migration history, and
 `user_version` together. It refuses a newer schema or inconsistent history.
 `Migrations/Bundled/0001_completion_estimates.sql` defines the separate dataset
 schema and is deliberately excluded from user migrations. Supply the dataset
-as a release asset; runtime connections attach it with `mode=ro`. Tests build
-their own small dataset from this resource, with no production metadata invented.
+as a release asset; runtime connections attach it with `mode=ro`. The canonical
+`assets/completion-estimates.db` currently contains the schema and zero rows.
+Game Duration estimates are deliberately unavailable until a real dataset ships.
+Tests build their own small dataset from this resource, with no production metadata invented.
 
 SQL parameters pass through `SqliteValues` so booleans become integer 0/1,
 enums use their names, and timestamps become UTC text with millisecond precision.
@@ -37,7 +40,11 @@ Reading timestamps uses the same format.
 Game upserts preserve the database-generated identity and creation time. Tags
 are a set returned in name order. Their names must exist in the bundled
 `TagDictionary`; unknown names roll back the upsert rather than inventing Steam
-tag IDs. The dictionary's release data belongs to the later metadata phase.
+tag IDs. After migrations, startup calls `TagDictionarySeeder.SeedAsync` on every
+launch. It upserts the linked `assets/tags.json` in a transaction through the same
+write queue, preserving old IDs referenced by existing games. Data and
+SteamIntegration link the same physical file at the repository root. Seeding
+does not add a schema-migration entry, so later releases refresh existing databases.
 Upserts persist installation paths, classification flags, metadata freshness,
 and artwork cache fields. New `Game` records default to stale metadata and null
 artwork paths/timestamps. Read an existing game and use `with` when changing only

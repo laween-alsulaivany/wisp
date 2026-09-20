@@ -17,6 +17,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Migrations\**\*.sql" />
+    <Content Include="..\..\assets\tags.json" Link="assets\tags.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\assets\completion-estimates.db" Link="assets\completion-estimates.db" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <InternalsVisibleTo Include="Wisp.Data.Tests" />
   </ItemGroup>
 
