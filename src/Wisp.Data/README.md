@@ -38,8 +38,13 @@ Game upserts preserve the database-generated identity and creation time. Tags
 are a set returned in name order. Their names must exist in the bundled
 `TagDictionary`; unknown names roll back the upsert rather than inventing Steam
 tag IDs. The dictionary's release data belongs to the later metadata phase.
-Columns outside the current Core `Game` contract retain their schema defaults
-or existing values.
+Upserts persist installation paths, classification flags, metadata freshness,
+and artwork cache fields. New `Game` records default to stale metadata and null
+artwork paths/timestamps. Read an existing game and use `with` when changing only
+some fields; an upsert replaces all fields in the Core `Game` contract.
+`GetAllAsync` returns every stored game, including uninstalled and otherwise
+ineligible games, with tags in name order and games in `GameId` order. It requires
+no profile and applies no recommendation filters.
 
 Session completion persists the caller-supplied runtime and foreground seconds.
 Only completed sessions contribute raw samples to `PlaytimeDistribution`.

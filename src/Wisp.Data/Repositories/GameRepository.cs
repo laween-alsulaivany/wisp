@@ -12,21 +12,32 @@ public sealed class GameRepository(WispDatabase database) : IGameRepository
     {
         using var transaction = connection.BeginTransaction();
         var gameId = await connection.ExecuteScalarAsync<int>(WispDatabase.Command("""
-            INSERT INTO Games (AppId, Name, Installed, IsFreeToPlay, IsToolOrUtility, IsDemo, IsVrOnly,
-                SupportsController, SteamCumulativePlaytimeMinutes, SteamLastPlayedUtc, CreatedUtc, UpdatedUtc)
-            VALUES (@AppId, @Name, @Installed, @IsFreeToPlay, @IsToolOrUtility, @IsDemo, @IsVrOnly,
-                @SupportsController, @SteamCumulativePlaytimeMinutes, @SteamLastPlayedUtc, @Now, @Now)
+            INSERT INTO Games (AppId, Name, Installed, InstallDir, IsFreeToPlay, IsToolOrUtility, IsDemo, IsVrOnly,
+                SupportsController, IsSinglePlayer, IsMultiplayer, IsStoryFocused, HeaderImagePath,
+                HeaderImageFetchedUtc, MetadataFetchedUtc, MetadataStale,
+                SteamCumulativePlaytimeMinutes, SteamLastPlayedUtc, CreatedUtc, UpdatedUtc)
+            VALUES (@AppId, @Name, @Installed, @InstallDir, @IsFreeToPlay, @IsToolOrUtility, @IsDemo, @IsVrOnly,
+                @SupportsController, @IsSinglePlayer, @IsMultiplayer, @IsStoryFocused, @HeaderImagePath,
+                @HeaderImageFetchedUtc, @MetadataFetchedUtc, @MetadataStale,
+                @SteamCumulativePlaytimeMinutes, @SteamLastPlayedUtc, @Now, @Now)
             ON CONFLICT(AppId) DO UPDATE SET
-                Name = excluded.Name, Installed = excluded.Installed, IsFreeToPlay = excluded.IsFreeToPlay,
+                Name = excluded.Name, Installed = excluded.Installed, InstallDir = excluded.InstallDir,
+                IsFreeToPlay = excluded.IsFreeToPlay,
                 IsToolOrUtility = excluded.IsToolOrUtility, IsDemo = excluded.IsDemo, IsVrOnly = excluded.IsVrOnly,
                 SupportsController = excluded.SupportsController,
+                IsSinglePlayer = excluded.IsSinglePlayer, IsMultiplayer = excluded.IsMultiplayer,
+                IsStoryFocused = excluded.IsStoryFocused, HeaderImagePath = excluded.HeaderImagePath,
+                HeaderImageFetchedUtc = excluded.HeaderImageFetchedUtc,
+                MetadataFetchedUtc = excluded.MetadataFetchedUtc, MetadataStale = excluded.MetadataStale,
                 SteamCumulativePlaytimeMinutes = excluded.SteamCumulativePlaytimeMinutes,
                 SteamLastPlayedUtc = excluded.SteamLastPlayedUtc, UpdatedUtc = excluded.UpdatedUtc
             RETURNING GameId;
             """, new
         {
-            game.AppId, game.Name, game.Installed, game.IsFreeToPlay, game.IsToolOrUtility, game.IsDemo,
-            game.IsVrOnly, game.SupportsController, game.SteamCumulativePlaytimeMinutes,
+            game.AppId, game.Name, game.Installed, game.InstallDir, game.IsFreeToPlay, game.IsToolOrUtility, game.IsDemo,
+            game.IsVrOnly, game.SupportsController, game.IsSinglePlayer, game.IsMultiplayer, game.IsStoryFocused,
+            game.HeaderImagePath, game.HeaderImageFetchedUtc, game.MetadataFetchedUtc, game.MetadataStale,
+            game.SteamCumulativePlaytimeMinutes,
             game.SteamLastPlayedUtc, Now = DateTimeOffset.UtcNow
         }, ct, transaction));
 
@@ -55,6 +66,12 @@ public sealed class GameRepository(WispDatabase database) : IGameRepository
         return games.SingleOrDefault();
     }
 
+    public async Task<IReadOnlyList<Game>> GetAllAsync(CancellationToken ct)
+    {
+        await using var connection = await database.OpenReadAsync(ct);
+        return await ReadGamesAsync(connection, "SELECT g.* FROM Games g ORDER BY g.GameId;", null, ct);
+    }
+
     public async Task<IReadOnlyList<Game>> GetEligiblePoolAsync(int profileId, EligibilityFilter filter, CancellationToken ct)
     {
         await using var connection = await database.OpenReadAsync(ct);
@@ -74,7 +91,7 @@ public sealed class GameRepository(WispDatabase database) : IGameRepository
     }
 
     private static async Task<IReadOnlyList<Game>> ReadGamesAsync(SqliteConnection connection, string sql,
-        object parameters, CancellationToken ct)
+        object? parameters, CancellationToken ct)
     {
         using var transaction = connection.BeginTransaction(deferred: true);
         var games = (await connection.QueryAsync<Game>(WispDatabase.Command(sql, parameters, ct, transaction))).ToArray();
