@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Wisp.Core\Wisp.Core.csproj" />
+    <InternalsVisibleTo Include="Wisp.RecommendationEngine.Tests" />
   </ItemGroup>
 
 </Project>
