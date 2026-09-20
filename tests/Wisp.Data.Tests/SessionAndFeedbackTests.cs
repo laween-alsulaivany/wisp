@@ -8,6 +8,40 @@ namespace Wisp.Data.Tests;
 public sealed class SessionAndFeedbackTests
 {
     [Fact]
+    public async Task GetByIdReturnsTheExactSessionBeforeAndAfterCompletion()
+    {
+        await using var db = await TestDatabase.CreateAsync();
+        var profile = await db.AddProfileAsync();
+        var otherProfile = await db.AddProfileAsync("other");
+        var game = await db.AddGameAsync();
+        var otherGame = await db.AddGameAsync(421);
+        await db.AddSessionAsync(otherGame.GameId, otherProfile);
+        var session = new Session
+        {
+            GameId = game.GameId, ProfileId = profile, StartUtc = TestDatabase.Now,
+            LaunchSource = LaunchSource.Recommendation
+        };
+        var id = await db.Sessions.StartSessionAsync(session, default);
+        session = session with { SessionId = id };
+        Assert.Equal(session, await db.Sessions.GetByIdAsync(id, default));
+
+        await db.Sessions.RecordRestartAsync(id, TestDatabase.Now.AddMinutes(3), TestDatabase.Now.AddMinutes(4), default);
+        var endUtc = TestDatabase.Now.AddMinutes(30);
+        await db.Sessions.CompleteSessionAsync(id, endUtc, 1740, 1500, default);
+        Assert.Equal(session with
+        {
+            EndUtc = endUtc, RuntimeSeconds = 1740, ActiveForegroundSeconds = 1500, RestartCount = 1
+        }, await db.Sessions.GetByIdAsync(id, default));
+    }
+
+    [Fact]
+    public async Task GetByIdReturnsNullForMissingSession()
+    {
+        await using var db = await TestDatabase.CreateAsync();
+        Assert.Null(await db.Sessions.GetByIdAsync(999, default));
+    }
+
+    [Fact]
     public async Task StartRestartAndCompleteRoundTripRuntimeAndForegroundTime()
     {
         await using var db = await TestDatabase.CreateAsync();

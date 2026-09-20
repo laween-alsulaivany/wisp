@@ -22,7 +22,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Wisp.App\Wisp.App.csproj" />
+    <ProjectReference Include="..\..\src\Wisp.Core\Wisp.Core.csproj" />
+    <!-- Exercise the same service sources without loading the WinUI executable's runtime bootstrap. -->
+    <Compile Include="..\..\src\Wisp.App\Services\GameStateService.cs" Link="Services\GameStateService.cs" />
+    <Compile Include="..\..\src\Wisp.App\Services\GameStateConstants.cs" Link="Services\GameStateConstants.cs" />
+    <Compile Include="..\..\src\Wisp.App\Services\CompletionHint.cs" Link="Services\CompletionHint.cs" />
   </ItemGroup>
 
 </Project>
