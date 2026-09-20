@@ -4,5 +4,5 @@ namespace Wisp.Core.Interfaces;
 
 public interface IRecommendationEngine
 {
-    Task<RecommendationResult?> GetRecommendationAsync(RecommendationRequest request, CancellationToken ct);
+    Task<RecommendationResult?> GetRecommendationAsync(RecommendationRequest request, RecommendationInputSnapshot snapshot, CancellationToken ct);
 }
