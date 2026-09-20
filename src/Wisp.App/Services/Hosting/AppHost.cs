@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Wisp.Core.Interfaces;
+using Wisp.App.ViewModels;
 using Wisp.Data;
 using Wisp.Data.Repositories;
 using Wisp.SteamIntegration.AppInfo;
@@ -74,6 +75,8 @@ public static class AppHost
             provider.GetRequiredKeyedService<HttpClient>("updates"),
             typeof(AppHost).Assembly.GetName().Version!));
         services.AddSingleton<UpdateStatus>();
+        services.AddSingleton<IUriLauncher, WindowsUriLauncher>();
+        services.AddTransient<RecommendationViewModel>();
         services.AddSingleton<SessionTrackingService>();
         services.AddSingleton<ISessionTracker>(provider => provider.GetRequiredService<SessionTrackingService>());
         services.AddHostedService<LocalTraceService>();

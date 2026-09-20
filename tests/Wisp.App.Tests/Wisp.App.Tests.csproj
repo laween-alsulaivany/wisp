@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
@@ -34,6 +35,8 @@
     <Compile Include="..\..\src\Wisp.App\Services\GameStateConstants.cs" Link="Services\GameStateConstants.cs" />
     <Compile Include="..\..\src\Wisp.App\Services\CompletionHint.cs" Link="Services\CompletionHint.cs" />
     <Compile Include="..\..\src\Wisp.App\Services\Hosting\*.cs" Link="Services\Hosting\%(Filename)%(Extension)" />
+    <Compile Include="..\..\src\Wisp.App\ViewModels\*.cs" Link="ViewModels\%(Filename)%(Extension)" />
+    <Compile Include="..\..\src\Wisp.App\Services\WindowsUriLauncher.cs" Link="Services\WindowsUriLauncher.cs" />
   </ItemGroup>
 
 </Project>

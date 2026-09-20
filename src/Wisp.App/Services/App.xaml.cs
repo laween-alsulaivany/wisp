@@ -12,6 +12,7 @@ public partial class App : Microsoft.UI.Xaml.Application
 {
     private IHost? host;
     private TrayShell? tray;
+    private WindowCoordinator? windows;
     private bool exiting;
 
     public App()
@@ -27,6 +28,7 @@ public partial class App : Microsoft.UI.Xaml.Application
             host = AppHost.Build(AppPaths.Default);
             var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
             lifetime.ApplicationStopping.Register(() => dispatcher.TryEnqueue(() => _ = ShutdownAsync()));
+            windows = new WindowCoordinator(host.Services);
             await host.StartAsync();
             if (lifetime.ApplicationStopping.IsCancellationRequested)
             {
@@ -35,7 +37,7 @@ public partial class App : Microsoft.UI.Xaml.Application
             }
             tray = new TrayShell(host.Services.GetRequiredService<UpdateStatus>(),
                 host.Services.GetRequiredService<Wisp.Core.Interfaces.IHotkeyManager>(),
-                host.Services.GetRequiredService<ILogger<TrayShell>>(), ShutdownAsync);
+                host.Services.GetRequiredService<ILogger<TrayShell>>(), windows.OpenRecommendation, ShutdownAsync);
         }
         catch (Exception exception)
         {
@@ -50,6 +52,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         exiting = true;
         try
         {
+            if (windows is not null) await windows.ShutdownAsync();
             if (host is not null) await host.StopAsync(TimeSpan.FromSeconds(30));
         }
         catch (Exception exception)
@@ -59,6 +62,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         finally
         {
             tray?.Dispose();
+            windows?.Dispose();
             host?.Dispose();
             Exit();
         }
