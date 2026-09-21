@@ -13,6 +13,10 @@ publish output, log, archive, and SHA-256 checksum. No existing output is delete
 
 ## Manual release gate
 
+Blocked by the live Steam ownership mismatch described in
+[PHASE_13_DISCREPANCY.md](PHASE_13_DISCREPANCY.md). The observed client window is
+owned by steamwebhelper.exe; the Phase 6 service only selects steam.exe windows.
+
 All boxes below are pending live verification. Record Windows version, artifact
 SHA-256, monitor scaling, and results before marking the release ready.
 
