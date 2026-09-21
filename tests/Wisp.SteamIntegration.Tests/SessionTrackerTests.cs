@@ -449,6 +449,12 @@ public sealed class SessionTrackerTests
             return Task.FromResult(Rows.GetValueOrDefault(sessionId));
         }
 
+        public Task<IReadOnlyList<Session>> GetRecentAsync(int profileId, int limit, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task ClearHistoryAsync(int profileId, CancellationToken ct) =>
+            throw new NotSupportedException();
+
         public Task<PlaytimeDistribution> GetActivePlaytimeDistributionAsync(int profileId, long? appId, CancellationToken ct) =>
             throw new NotSupportedException();
     }

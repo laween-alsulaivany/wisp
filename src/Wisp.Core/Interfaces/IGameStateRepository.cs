@@ -6,4 +6,5 @@ public interface IGameStateRepository
 {
     Task<GameState?> GetAsync(int gameId, int profileId, CancellationToken ct);
     Task UpsertAsync(GameState state, CancellationToken ct);
+    Task ClearAllAsync(int profileId, CancellationToken ct);
 }

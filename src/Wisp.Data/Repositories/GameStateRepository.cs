@@ -14,6 +14,10 @@ public sealed class GameStateRepository(WispDatabase database) : IGameStateRepos
             new { GameId = gameId, ProfileId = profileId }, ct));
     }
 
+    public Task ClearAllAsync(int profileId, CancellationToken ct) => database.WriteAsync(connection =>
+        connection.ExecuteAsync(WispDatabase.Command("DELETE FROM GameStates WHERE ProfileId = @ProfileId;",
+            new { ProfileId = profileId }, ct)), ct);
+
     public Task UpsertAsync(GameState state, CancellationToken ct) => database.WriteAsync(connection =>
         connection.ExecuteAsync(WispDatabase.Command("""
             INSERT INTO GameStates (GameId, ProfileId, State, ActiveRankScore, ConsecutiveKeepGoingCount,

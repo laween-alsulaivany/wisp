@@ -78,6 +78,13 @@ public sealed class GameStateService(
         await stateRepository.UpsertAsync(updated, ct);
     }
 
+    public async Task ResetRecommendationHistoryAsync(int profileId, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        await sessionRepository.ClearHistoryAsync(profileId, ct);
+        await stateRepository.ClearAllAsync(profileId, ct);
+    }
+
     private async Task<GameState> ChangeStateAsync(GameState state, GameStateKind target,
         DateTimeOffset now, CancellationToken ct)
     {
