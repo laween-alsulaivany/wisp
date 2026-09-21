@@ -37,7 +37,8 @@ public partial class App : Microsoft.UI.Xaml.Application
             }
             tray = new TrayShell(host.Services.GetRequiredService<UpdateStatus>(),
                 host.Services.GetRequiredService<Wisp.Core.Interfaces.IHotkeyManager>(),
-                host.Services.GetRequiredService<ILogger<TrayShell>>(), windows.OpenRecommendation, ShutdownAsync);
+                host.Services.GetRequiredService<ILogger<TrayShell>>(), windows.OpenRecommendation,
+                windows.OpenLibrary, windows.OpenHistory, windows.OpenSettings, ShutdownAsync);
         }
         catch (Exception exception)
         {

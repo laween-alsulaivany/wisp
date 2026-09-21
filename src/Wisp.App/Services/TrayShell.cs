@@ -18,22 +18,22 @@ public sealed class TrayShell : IDisposable
     private readonly IHotkeyManager hotkey;
     private readonly ILogger<TrayShell> logger;
     private readonly DispatcherQueue dispatcher = DispatcherQueue.GetForCurrentThread();
-    private readonly Dictionary<string, Window> windows = [];
     private readonly MenuFlyout menu = new();
     private readonly MenuFlyoutItem updateItem;
     private bool disposed;
     private readonly Action openRecommendation;
 
     public TrayShell(UpdateStatus updates, IHotkeyManager hotkey, ILogger<TrayShell> logger,
-        Action openRecommendation, Func<Task> exit)
+        Action openRecommendation, Action openLibrary, Action openHistory, Action openSettings, Func<Task> exit)
     {
         this.updates = updates;
         this.hotkey = hotkey;
         this.logger = logger;
         this.openRecommendation = openRecommendation;
         menu.Items.Add(new MenuFlyoutItem { Text = "Pick for me", Command = new RelayCommand(openRecommendation) });
-        foreach (var title in new[] { "Library", "History", "Settings" })
-            menu.Items.Add(new MenuFlyoutItem { Text = title, Command = new RelayCommand(() => OpenPlaceholder(title)) });
+        menu.Items.Add(new MenuFlyoutItem { Text = "Library", Command = new RelayCommand(openLibrary) });
+        menu.Items.Add(new MenuFlyoutItem { Text = "History", Command = new RelayCommand(openHistory) });
+        menu.Items.Add(new MenuFlyoutItem { Text = "Settings", Command = new RelayCommand(openSettings) });
         menu.Items.Add(new MenuFlyoutItem { Text = "Exit", Command = new AsyncRelayCommand(exit) });
         updateItem = new MenuFlyoutItem
         {
@@ -57,26 +57,6 @@ public sealed class TrayShell : IDisposable
 
     private void OnPickHotkey(object? sender, EventArgs args) =>
         dispatcher.TryEnqueue(() => { if (!disposed) openRecommendation(); });
-
-    private void OpenPlaceholder(string title)
-    {
-        if (disposed) return;
-        if (!windows.TryGetValue(title, out var window))
-        {
-            window = new Window { Title = $"Wisp - {title}", Content = new Grid() };
-            window.AppWindow.Resize(new Windows.Graphics.SizeInt32(640, 480));
-            window.AppWindow.Closing += (_, args) =>
-            {
-                if (disposed) return;
-                args.Cancel = true;
-                window.AppWindow.Hide();
-            };
-            windows.Add(title, window);
-            window.Closed += (_, _) => windows.Remove(title);
-        }
-        window.Activate();
-        logger.LogInformation("Opened {WindowTitle} placeholder", title);
-    }
 
     private void OnUpdateChanged(object? sender, EventArgs args) => dispatcher.TryEnqueue(RefreshUpdate);
 
@@ -112,7 +92,5 @@ public sealed class TrayShell : IDisposable
         hotkey.PickHotkeyPressed -= OnPickHotkey;
         icon.Dispose();
         drawingIcon.Dispose();
-        foreach (var window in windows.Values.ToArray()) window.Close();
-        windows.Clear();
     }
 }

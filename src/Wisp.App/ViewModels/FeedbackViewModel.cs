@@ -52,6 +52,15 @@ public sealed class FeedbackViewModel : ObservableObject
     public event EventHandler? Completed;
     private bool CanSave => ShouldShow && !completed && !saving;
 
+    public void Invalidate()
+    {
+        // Reset removed the session; closing its prompt must not create pending feedback again.
+        completed = true;
+        OnPropertyChanged(nameof(IsCompleted));
+        NotifyCommands();
+        Completed?.Invoke(this, EventArgs.Empty);
+    }
+
     private async Task SaveAsync(FeedbackType type)
     {
         if (!CanSave) return;

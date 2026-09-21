@@ -17,8 +17,7 @@ public sealed class ContainerValidationTests
         try
         {
             using var host = AppHost.Build(paths);
-            var interfaces = typeof(IClock).Assembly.GetTypes().Where(type => type.IsInterface
-                && type != typeof(IStartupRegistrar)); // Phase 12 owns startup registration.
+            var interfaces = typeof(IClock).Assembly.GetTypes().Where(type => type.IsInterface);
             foreach (var contract in interfaces)
                 host.Services.GetRequiredService(contract).Should().NotBeNull();
             var registrations = new ServiceCollection();
@@ -30,6 +29,9 @@ public sealed class ContainerValidationTests
             workers.OfType<SessionTrackingService>().Single().Should()
                 .BeSameAs(host.Services.GetRequiredService<ISessionTracker>());
             host.Services.GetRequiredService<Wisp.App.ViewModels.RecommendationViewModel>().Should().NotBeNull();
+            host.Services.GetRequiredService<Wisp.App.ViewModels.LibraryViewModel>().Should().NotBeNull();
+            host.Services.GetRequiredService<Wisp.App.ViewModels.HistoryViewModel>().Should().NotBeNull();
+            host.Services.GetRequiredService<Wisp.App.ViewModels.SettingsViewModel>().Should().NotBeNull();
             host.Services.GetRequiredService<IForegroundWindowMonitor>().Should()
                 .BeSameAs(host.Services.GetRequiredService<Wisp.SteamIntegration.Win32.ForegroundWindowMonitor>());
         }
