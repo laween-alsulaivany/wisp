@@ -77,6 +77,10 @@ public static class AppHost
         services.AddSingleton<UpdateStatus>();
         services.AddSingleton<IUriLauncher, WindowsUriLauncher>();
         services.AddTransient<RecommendationViewModel>();
+        services.AddTransient<LibraryViewModel>();
+        services.AddTransient<HistoryViewModel>();
+        services.AddTransient<SettingsViewModel>();
+        services.AddSingleton<IStartupRegistrar, StartupRegistrar>();
         services.AddSingleton<SessionTrackingService>();
         services.AddSingleton<ISessionTracker>(provider => provider.GetRequiredService<SessionTrackingService>());
         services.AddHostedService<LocalTraceService>();
