@@ -282,6 +282,36 @@ public sealed class GameStateServiceTests
         Assert.Empty(sessions.ReceivedCalls());
     }
 
+    [Fact]
+    public async Task ResetClearsOnlyTheProfilesSessionsAndStatesInOrder()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var ct = cancellation.Token;
+        await service.ResetRecommendationHistoryAsync(session.ProfileId, ct);
+        Received.InOrder(() =>
+        {
+            sessions.ClearHistoryAsync(session.ProfileId, ct);
+            states.ClearAllAsync(session.ProfileId, ct);
+        });
+        Assert.Single(sessions.ReceivedCalls());
+        Assert.Single(states.ReceivedCalls());
+        Assert.Empty(feedback.ReceivedCalls());
+        Assert.Empty(settings.ReceivedCalls());
+        Assert.DoesNotContain(typeof(GameStateService).GetConstructors().SelectMany(c => c.GetParameters()),
+            p => p.ParameterType == typeof(IGameRepository));
+    }
+
+    [Fact]
+    public async Task CancelledResetDoesNotCallRepositories()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.ResetRecommendationHistoryAsync(session.ProfileId, cancellation.Token));
+        Assert.Empty(sessions.ReceivedCalls());
+        Assert.Empty(states.ReceivedCalls());
+    }
+
     private async Task AssertNeutralAsync(FeedbackType answer)
     {
         stored = stored! with { State = GameStateKind.MaybeLater, MaybeLaterUntilUtc = clock.UtcNow.AddDays(2) };

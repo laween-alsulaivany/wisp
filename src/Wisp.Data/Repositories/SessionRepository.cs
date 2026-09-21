@@ -47,6 +47,19 @@ public sealed class SessionRepository(WispDatabase database) : ISessionRepositor
             "SELECT * FROM Sessions WHERE SessionId = @SessionId;", new { SessionId = sessionId }, ct));
     }
 
+    public async Task<IReadOnlyList<Session>> GetRecentAsync(int profileId, int limit, CancellationToken ct)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+        await using var connection = await database.OpenReadAsync(ct);
+        return (await connection.QueryAsync<Session>(WispDatabase.Command(
+            "SELECT * FROM Sessions WHERE ProfileId = @ProfileId ORDER BY StartUtc DESC, SessionId DESC LIMIT @Limit;",
+            new { ProfileId = profileId, Limit = limit }, ct))).ToArray();
+    }
+
+    public Task ClearHistoryAsync(int profileId, CancellationToken ct) => database.WriteAsync(connection =>
+        connection.ExecuteAsync(WispDatabase.Command("DELETE FROM Sessions WHERE ProfileId = @ProfileId;",
+            new { ProfileId = profileId }, ct)), ct);
+
     public async Task<PlaytimeDistribution> GetActivePlaytimeDistributionAsync(int profileId, long? appId,
         CancellationToken ct)
     {

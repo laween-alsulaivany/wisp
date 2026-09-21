@@ -9,5 +9,7 @@ public interface ISessionRepository
     Task CompleteSessionAsync(int sessionId, DateTimeOffset endUtc, int runtimeSeconds, int activeForegroundSeconds, CancellationToken ct);
     Task RecordRestartAsync(int sessionId, DateTimeOffset closedUtc, DateTimeOffset relaunchedUtc, CancellationToken ct);
     Task<Session?> GetByIdAsync(int sessionId, CancellationToken ct);
+    Task<IReadOnlyList<Session>> GetRecentAsync(int profileId, int limit, CancellationToken ct);
+    Task ClearHistoryAsync(int profileId, CancellationToken ct);
     Task<PlaytimeDistribution> GetActivePlaytimeDistributionAsync(int profileId, long? appId, CancellationToken ct);
 }

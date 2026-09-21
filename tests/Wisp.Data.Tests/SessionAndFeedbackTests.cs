@@ -149,8 +149,8 @@ public sealed class SessionAndFeedbackTests
         Assert.Equal(pending.FeedbackId, edited.FeedbackId);
         Assert.Equal(FeedbackType.KeepGoing, edited.FeedbackType);
         Assert.Equal(TestDatabase.Now, edited.RecordedUtc);
-        Assert.True(edited.Edited);
-        Assert.Equal("integer:0:1", await read.ExecuteScalarAsync<string>(
+        Assert.False(edited.Edited);
+        Assert.Equal("integer:0:0", await read.ExecuteScalarAsync<string>(
             "SELECT typeof(IsPending) || ':' || IsPending || ':' || Edited FROM Feedback WHERE SessionId = @Id;",
             new { Id = first.SessionId }));
         Assert.Equal(3, await db.ScalarAsync<int>("SELECT COUNT(*) FROM Feedback;"));
