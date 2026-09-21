@@ -19,6 +19,9 @@ public sealed class SessionTrackingService(
     private SessionTracker? tracker;
     private bool enabled = true;
     private int? activeProfileId;
+    private readonly TaskCompletionSource startupCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public Task StartupCompleted => startupCompleted.Task;
 
     public int? ActiveProfileId { get { lock (gate) return activeProfileId; } }
     public event EventHandler? ActiveProfileChanged;
@@ -77,7 +80,13 @@ public sealed class SessionTrackingService(
                     }
                     currentSteamId = steamId;
                 }
+                startupCompleted.TrySetResult();
             } while (await timer.WaitForNextTickAsync(stoppingToken));
+        }
+        catch (Exception exception)
+        {
+            startupCompleted.TrySetException(exception);
+            throw;
         }
         finally { ReleaseTracker(); }
     }

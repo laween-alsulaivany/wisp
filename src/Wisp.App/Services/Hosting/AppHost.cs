@@ -80,12 +80,15 @@ public static class AppHost
         services.AddTransient<LibraryViewModel>();
         services.AddTransient<HistoryViewModel>();
         services.AddTransient<SettingsViewModel>();
+        services.AddTransient<FirstLaunchViewModel>();
         services.AddSingleton<IStartupRegistrar, StartupRegistrar>();
         services.AddSingleton<SessionTrackingService>();
         services.AddSingleton<ISessionTracker>(provider => provider.GetRequiredService<SessionTrackingService>());
         services.AddHostedService<LocalTraceService>();
-        services.AddHostedService<DatabaseStartupService>();
-        services.AddHostedService<MetadataSyncWorker>();
+        services.AddSingleton<DatabaseStartupService>();
+        services.AddHostedService(provider => provider.GetRequiredService<DatabaseStartupService>());
+        services.AddSingleton<MetadataSyncWorker>();
+        services.AddHostedService(provider => provider.GetRequiredService<MetadataSyncWorker>());
         services.AddHostedService(provider => provider.GetRequiredService<SessionTrackingService>());
         services.AddHostedService<UpdateCheckWorker>();
     }

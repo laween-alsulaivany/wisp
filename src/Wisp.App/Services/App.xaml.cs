@@ -5,6 +5,8 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Wisp.App.Services;
 using Wisp.App.Services.Hosting;
+using Wisp.App.ViewModels;
+using Wisp.App.Views;
 
 namespace Wisp.App;
 
@@ -13,6 +15,7 @@ public partial class App : Microsoft.UI.Xaml.Application
     private IHost? host;
     private TrayShell? tray;
     private WindowCoordinator? windows;
+    private FirstLaunchWindow? firstLaunch;
     private bool exiting;
 
     public App()
@@ -35,10 +38,30 @@ public partial class App : Microsoft.UI.Xaml.Application
                 await ShutdownAsync();
                 return;
             }
+            void Open(Action action)
+            {
+                if (firstLaunch is { } welcome) welcome.Activate();
+                else action();
+            }
             tray = new TrayShell(host.Services.GetRequiredService<UpdateStatus>(),
                 host.Services.GetRequiredService<Wisp.Core.Interfaces.IHotkeyManager>(),
-                host.Services.GetRequiredService<ILogger<TrayShell>>(), windows.OpenRecommendation,
-                windows.OpenLibrary, windows.OpenHistory, windows.OpenSettings, ShutdownAsync);
+                host.Services.GetRequiredService<ILogger<TrayShell>>(), () => Open(windows.OpenRecommendation),
+                () => Open(windows.OpenLibrary), () => Open(windows.OpenHistory),
+                () => Open(windows.OpenSettings), ShutdownAsync);
+            if (host.Services.GetRequiredService<DatabaseStartupService>().IsFirstLaunch)
+            {
+                var model = host.Services.GetRequiredService<FirstLaunchViewModel>();
+                firstLaunch = new FirstLaunchWindow(model);
+                firstLaunch.Activate();
+                var loading = model.OpenAsync(Task.WhenAll(
+                    host.Services.GetRequiredService<MetadataSyncWorker>().StartupCompleted,
+                    host.Services.GetRequiredService<SessionTrackingService>().StartupCompleted));
+                var started = await firstLaunch.Completion;
+                firstLaunch = null;
+                await loading;
+                if (!started || exiting) { await ShutdownAsync(); return; }
+            }
+            windows.StartSteamButton();
         }
         catch (Exception exception)
         {
@@ -51,6 +74,7 @@ public partial class App : Microsoft.UI.Xaml.Application
     {
         if (exiting) return;
         exiting = true;
+        firstLaunch?.Close();
         try
         {
             if (windows is not null) await windows.ShutdownAsync();

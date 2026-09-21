@@ -32,6 +32,7 @@ public sealed class ContainerValidationTests
             host.Services.GetRequiredService<Wisp.App.ViewModels.LibraryViewModel>().Should().NotBeNull();
             host.Services.GetRequiredService<Wisp.App.ViewModels.HistoryViewModel>().Should().NotBeNull();
             host.Services.GetRequiredService<Wisp.App.ViewModels.SettingsViewModel>().Should().NotBeNull();
+            host.Services.GetRequiredService<Wisp.App.ViewModels.FirstLaunchViewModel>().Should().NotBeNull();
             host.Services.GetRequiredService<IForegroundWindowMonitor>().Should()
                 .BeSameAs(host.Services.GetRequiredService<Wisp.SteamIntegration.Win32.ForegroundWindowMonitor>());
         }

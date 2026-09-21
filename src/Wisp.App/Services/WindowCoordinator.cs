@@ -47,6 +47,8 @@ public sealed class WindowCoordinator : IDisposable
         }
     }
 
+    public void StartSteamButton() => steamButton?.Enable();
+
     public void OpenRecommendation()
     {
         if (disposed) return;
