@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
 using Wisp.App.Services.Hosting;
 using Wisp.App.ViewModels;
 using Wisp.App.Views;
@@ -15,8 +16,11 @@ public sealed class WindowCoordinator : IDisposable
     private readonly SessionTrackingService sessions;
     private readonly DispatcherQueue dispatcher = DispatcherQueue.GetForCurrentThread();
     private readonly ILogger<WindowCoordinator> logger;
-    private readonly Dictionary<int, (FeedbackWindow Window, FeedbackViewModel Model)> feedbackWindows = [];
+    private readonly Dictionary<int, (FeedbackWindow Window, FeedbackViewModel Model, int ProfileId)> feedbackWindows = [];
     private readonly HashSet<int> presentedSessions = [];
+    private readonly Dictionary<Type, Window> profileWindows = [];
+    private readonly HashSet<int> activeSessions = [];
+    private SettingsViewModel? settingsModel;
     private RecommendationWindow? recommendationWindow;
     private SteamButtonWindow? steamButton;
     private bool disposed;
@@ -28,6 +32,7 @@ public sealed class WindowCoordinator : IDisposable
         logger = services.GetRequiredService<ILogger<WindowCoordinator>>();
         sessions.ActiveProfileChanged += OnProfileChanged;
         sessions.SessionEnded += OnSessionEnded;
+        sessions.SessionStarted += OnSessionStarted;
         SteamButtonViewModel? buttonModel = null;
         try
         {
@@ -41,6 +46,8 @@ public sealed class WindowCoordinator : IDisposable
             logger.LogWarning(exception, "Steam button unavailable; tray and hotkey remain available");
         }
     }
+
+    public void StartSteamButton() => steamButton?.Enable();
 
     public void OpenRecommendation()
     {
@@ -59,15 +66,72 @@ public sealed class WindowCoordinator : IDisposable
         _ = model.OpenAsync(sessions.ActiveProfileId);
     }
 
+    public void OpenLibrary() => OpenProfileScreen<LibraryViewModel>(model => new LibraryWindow(model));
+    public void OpenHistory() => OpenProfileScreen<HistoryViewModel>(model => new HistoryWindow(model));
+    public void OpenSettings() => OpenProfileScreen<SettingsViewModel>(model => new SettingsWindow(model));
+
+    private void OpenProfileScreen<T>(Func<T, Window> create) where T : ProfileScreenViewModel
+    {
+        if (disposed) return;
+        if (profileWindows.TryGetValue(typeof(T), out var existing)) { existing.Activate(); return; }
+        var scope = services.CreateScope();
+        var model = scope.ServiceProvider.GetRequiredService<T>();
+        var profileId = sessions.ActiveProfileId;
+        void OnHistoryReset(object? sender, EventArgs args)
+        {
+            foreach (var entry in feedbackWindows.Values.Where(e => e.ProfileId == profileId).ToArray())
+                entry.Model.Invalidate();
+            recommendationWindow?.Close();
+            _ = RefreshPendingAsync();
+        }
+        if (model is SettingsViewModel settings)
+        {
+            settingsModel = settings;
+            settings.HasActiveSession = activeSessions.Count > 0;
+            settings.HistoryReset += OnHistoryReset;
+        }
+        var window = create(model);
+        profileWindows.Add(typeof(T), window);
+        window.Closed += (_, _) =>
+        {
+            profileWindows.Remove(typeof(T));
+            if (ReferenceEquals(settingsModel, model)) settingsModel = null;
+            if (model is SettingsViewModel settings) settings.HistoryReset -= OnHistoryReset;
+            scope.Dispose();
+            _ = RefreshPendingAsync();
+        };
+        window.Activate();
+        _ = model.OpenAsync(sessions.ActiveProfileId);
+        if (model is not SettingsViewModel)
+            window.Activated += (_, args) =>
+            {
+                if (args.WindowActivationState != WindowActivationState.Deactivated && !disposed)
+                    _ = model.OpenAsync(sessions.ActiveProfileId);
+            };
+    }
+
     private void OnProfileChanged(object? sender, EventArgs args) => dispatcher.TryEnqueue(() =>
     {
         if (disposed) return;
         recommendationWindow?.Close();
+        foreach (var window in profileWindows.Values.ToArray()) window.Close();
         _ = RefreshPendingAsync();
     });
 
-    private void OnSessionEnded(object? sender, SessionEndedEventArgs args) =>
-        dispatcher.TryEnqueue(() => { if (!disposed) _ = ShowFeedbackAsync(args); });
+    private void OnSessionStarted(object? sender, SessionStartedEventArgs args) => dispatcher.TryEnqueue(() =>
+    {
+        if (disposed) return;
+        activeSessions.Add(args.Session.SessionId);
+        if (settingsModel is not null) settingsModel.HasActiveSession = true;
+    });
+
+    private void OnSessionEnded(object? sender, SessionEndedEventArgs args) => dispatcher.TryEnqueue(() =>
+    {
+        if (disposed) return;
+        activeSessions.Remove(args.Session.SessionId);
+        if (settingsModel is not null) settingsModel.HasActiveSession = activeSessions.Count > 0;
+        _ = ShowFeedbackAsync(args);
+    });
 
     private async Task ShowFeedbackAsync(SessionEndedEventArgs args)
     {
@@ -80,6 +144,9 @@ public sealed class WindowCoordinator : IDisposable
         {
             var settings = await services.GetRequiredService<ISettingsRepository>().GetAsync(session.ProfileId, CancellationToken.None);
             if (disposed || settings?.ShowPostSessionFeedback == false) return;
+            if (await services.GetRequiredService<ISessionRepository>().GetByIdAsync(session.SessionId, CancellationToken.None) is null)
+                return;
+            if (disposed) return;
             // A previous profile's final session remains answerable in History without interrupting the new profile.
             if (sessions.ActiveProfileId != session.ProfileId)
             {
@@ -87,7 +154,7 @@ public sealed class WindowCoordinator : IDisposable
                 return;
             }
             var window = new FeedbackWindow(model);
-            feedbackWindows.Add(session.SessionId, (window, model));
+            feedbackWindows.Add(session.SessionId, (window, model, session.ProfileId));
             window.Closed += (_, _) => { feedbackWindows.Remove(session.SessionId); _ = RefreshPendingAsync(); };
             window.AppWindow.Show(activateWindow: false);
         }
@@ -112,7 +179,8 @@ public sealed class WindowCoordinator : IDisposable
         disposed = true;
         sessions.ActiveProfileChanged -= OnProfileChanged;
         sessions.SessionEnded -= OnSessionEnded;
-        foreach (var (window, model) in feedbackWindows.Values.ToArray())
+        sessions.SessionStarted -= OnSessionStarted;
+        foreach (var (window, model, _) in feedbackWindows.Values.ToArray())
         {
             if (model.SubmitCommand.ExecutionTask is { } submitting) await submitting;
             if (model.DismissCommand.ExecutionTask is { } dismissing) await dismissing;
@@ -126,7 +194,9 @@ public sealed class WindowCoordinator : IDisposable
         disposed = true;
         sessions.ActiveProfileChanged -= OnProfileChanged;
         sessions.SessionEnded -= OnSessionEnded;
+        sessions.SessionStarted -= OnSessionStarted;
         recommendationWindow?.Close();
         steamButton?.Close();
+        foreach (var window in profileWindows.Values.ToArray()) window.Close();
     }
 }
