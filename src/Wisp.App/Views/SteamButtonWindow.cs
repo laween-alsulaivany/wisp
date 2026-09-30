@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Windowing;
@@ -13,6 +14,14 @@ public sealed class SteamButtonWindow : Window
     private readonly SteamButtonViewModel model;
     private readonly ILogger logger;
     private readonly Button button;
+    private readonly DispatcherTimer expansionTimer = new() { Interval = TimeSpan.FromMilliseconds(16) };
+    private readonly Stopwatch expansionClock = new();
+    private double currentWidth;
+    private double startingWidth;
+    private int targetWidth;
+    private int lastHeight;
+    private bool shown;
+    private bool enabled;
     private readonly TextBlock badge = new()
     {
         Text = "●", Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Orange),
@@ -46,8 +55,9 @@ public sealed class SteamButtonWindow : Window
         panel.Children.Add(button);
         panel.Children.Add(badge);
         Content = panel;
+        expansionTimer.Tick += (_, _) => AnimateExpansion();
         model.PropertyChanged += Refresh;
-        Closed += (_, _) => { model.PropertyChanged -= Refresh; model.Dispose(); };
+        Closed += (_, _) => { expansionTimer.Stop(); model.PropertyChanged -= Refresh; model.Dispose(); };
     }
 
     public void SetPending(bool pending)
@@ -56,22 +66,75 @@ public sealed class SteamButtonWindow : Window
         ToolTipService.SetToolTip(button, pending ? "Pick for me · Pending feedback" : "Pick for me");
     }
 
+    public void Enable()
+    {
+        enabled = true;
+        Refresh(this, new PropertyChangedEventArgs(string.Empty));
+    }
+
     private void Refresh(object? sender, PropertyChangedEventArgs args)
     {
         try
         {
             button.Content = model.Label;
-            if (!model.IsVisible) { AppWindow.Hide(); return; }
-            AppWindow.MoveAndResize(new Windows.Graphics.RectInt32(model.Left, model.Top, model.Width, model.Height));
+            if (!enabled || !model.IsVisible)
+            {
+                expansionTimer.Stop();
+                shown = false;
+                AppWindow.Hide();
+                return;
+            }
+            if (!shown || lastHeight != model.Height || !new Windows.UI.ViewManagement.UISettings().AnimationsEnabled)
+            {
+                expansionTimer.Stop();
+                currentWidth = targetWidth = model.Width;
+            }
+            else if (targetWidth != model.Width)
+            {
+                startingWidth = currentWidth;
+                targetWidth = model.Width;
+                expansionClock.Restart();
+                expansionTimer.Start();
+            }
+            lastHeight = model.Height;
+            PositionButton();
             AppWindow.Show(activateWindow: false);
+            shown = true;
         }
         catch (Exception exception)
         {
-            model.PropertyChanged -= Refresh;
-            model.Disable();
-            AppWindow.Hide();
-            logger.LogWarning(exception, "Steam button disabled; tray and hotkey remain available");
+            Disable(exception);
         }
+    }
+
+    private void AnimateExpansion()
+    {
+        try
+        {
+            var progress = Math.Min(1, expansionClock.Elapsed.TotalMilliseconds / 180);
+            var eased = 1 - Math.Pow(1 - progress, 3);
+            currentWidth = startingWidth + (targetWidth - startingWidth) * eased;
+            PositionButton();
+            if (progress >= 1) expansionTimer.Stop();
+        }
+        catch (Exception exception) { Disable(exception); }
+    }
+
+    private void PositionButton()
+    {
+        var width = (int)Math.Round(currentWidth);
+        // Keep the right edge attached while the native window expands to the left.
+        AppWindow.MoveAndResize(new Windows.Graphics.RectInt32(
+            model.Left + model.Width - width, model.Top, width, model.Height));
+    }
+
+    private void Disable(Exception exception)
+    {
+        expansionTimer.Stop();
+        model.PropertyChanged -= Refresh;
+        model.Disable();
+        AppWindow.Hide();
+        logger.LogWarning(exception, "Steam button disabled; tray and hotkey remain available");
     }
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]

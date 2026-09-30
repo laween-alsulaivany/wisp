@@ -75,6 +75,21 @@ public sealed class FeedbackViewModelTests
         Assert.NotEmpty(model.Status);
     }
 
+    [Fact]
+    public async Task InvalidatingAResetSessionClosesWithoutWritingPendingFeedback()
+    {
+        var states = Substitute.For<IGameStateService>();
+        var model = Create(45, states);
+        var closed = false;
+        model.Completed += (_, _) => closed = true;
+        model.Invalidate();
+        await model.DismissCommand.ExecuteAsync(null);
+        Assert.True(closed);
+        Assert.True(model.IsCompleted);
+        Assert.False(model.SubmitCommand.CanExecute(model.Options[0]));
+        Assert.Empty(states.ReceivedCalls());
+    }
+
     private static FeedbackViewModel Create(double minutes, IGameStateService states) =>
         new(42, TimeSpan.FromMinutes(minutes), states, NullLogger<FeedbackViewModel>.Instance);
 }

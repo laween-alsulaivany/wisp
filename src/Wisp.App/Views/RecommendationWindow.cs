@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Media.Animation;
 using Wisp.App.ViewModels;
 using Wisp.Core.Entities;
 using Wisp.Core.Enums;
@@ -16,6 +17,9 @@ public sealed class RecommendationWindow : Window
     private readonly Image image = new() { Stretch = Stretch.UniformToFill };
     private readonly TextBlock name = new() { FontSize = 24, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock reasons = new() { TextWrapping = TextWrapping.Wrap };
+    private readonly TranslateTransform playOffset = new() { Y = 16 };
+    private Storyboard? playAnimation;
+    private bool artworkHovered;
 
     public RecommendationWindow(RecommendationViewModel model)
     {
@@ -24,25 +28,37 @@ public sealed class RecommendationWindow : Window
         AppWindow.Resize(new Windows.Graphics.SizeInt32(680, 660));
         var panel = new StackPanel { Spacing = 16, Padding = new Thickness(24), DataContext = model };
         var artwork = new Grid { Height = 240, Background = new SolidColorBrush(Microsoft.UI.Colors.DarkSlateGray) };
+        artwork.SizeChanged += (_, _) => artwork.Clip = new RectangleGeometry
+        {
+            Rect = new Windows.Foundation.Rect(0, 0, artwork.ActualWidth, artwork.ActualHeight)
+        };
         artwork.Children.Add(new TextBlock
         {
             Text = "WISP", FontSize = 48, HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White)
         });
         artwork.Children.Add(image);
-        artwork.Children.Add(new Border
+        var playOverlay = new Border
         {
-            Background = new SolidColorBrush(Microsoft.UI.Colors.Black), Opacity = 0.8,
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(204, 0, 0, 0)), Opacity = 0,
+            RenderTransform = playOffset, IsHitTestVisible = false,
             VerticalAlignment = VerticalAlignment.Bottom, Padding = new Thickness(12),
             Child = new TextBlock { Text = "Play", HorizontalAlignment = HorizontalAlignment.Center,
                 Foreground = new SolidColorBrush(Microsoft.UI.Colors.White) }
-        });
+        };
+        artwork.Children.Add(playOverlay);
         var play = new Button
         {
             Content = artwork, Padding = new Thickness(0), HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch, Command = model.PlayCommand
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(play, "Play recommended game");
+        void RefreshPlay() => AnimatePlay(playOverlay,
+            artworkHovered || play.FocusState == FocusState.Keyboard);
+        play.PointerEntered += (_, _) => { artworkHovered = true; RefreshPlay(); };
+        play.PointerExited += (_, _) => { artworkHovered = false; RefreshPlay(); };
+        play.GotFocus += (_, _) => RefreshPlay();
+        play.LostFocus += (_, _) => RefreshPlay();
         panel.Children.Add(play);
         panel.Children.Add(name);
         panel.Children.Add(new Expander
@@ -76,7 +92,35 @@ public sealed class RecommendationWindow : Window
         Content = new ScrollViewer { Content = panel, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         model.PropertyChanged += Refresh;
         model.Played += OnPlayed;
-        Closed += (_, _) => { model.PropertyChanged -= Refresh; model.Played -= OnPlayed; model.Dispose(); };
+        Closed += (_, _) => { playAnimation?.Stop(); model.PropertyChanged -= Refresh; model.Played -= OnPlayed; model.Dispose(); };
+    }
+
+    private void AnimatePlay(Border overlay, bool visible)
+    {
+        var opacity = overlay.Opacity;
+        var offset = playOffset.Y;
+        playAnimation?.Stop();
+        overlay.Opacity = opacity;
+        playOffset.Y = offset;
+        if (!new Windows.UI.ViewManagement.UISettings().AnimationsEnabled)
+        {
+            overlay.Opacity = visible ? 1 : 0;
+            playOffset.Y = visible ? 0 : 16;
+            return;
+        }
+        playAnimation = new Storyboard();
+        var fade = new DoubleAnimation { From = opacity, To = visible ? 1 : 0,
+            Duration = TimeSpan.FromMilliseconds(180) };
+        Storyboard.SetTarget(fade, overlay);
+        Storyboard.SetTargetProperty(fade, "Opacity");
+        var rise = new DoubleAnimation { From = offset, To = visible ? 0 : 16,
+            Duration = TimeSpan.FromMilliseconds(180),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
+        Storyboard.SetTarget(rise, playOffset);
+        Storyboard.SetTargetProperty(rise, "Y");
+        playAnimation.Children.Add(fade);
+        playAnimation.Children.Add(rise);
+        playAnimation.Begin();
     }
 
     private void OnPlayed(object? sender, EventArgs args) => Close();
