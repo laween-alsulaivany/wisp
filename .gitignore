@@ -4,4 +4,6 @@
 **/obj/
 .vs/
 *.user
+Wisp-audit.md
+*.bk
 /docs/*.md
